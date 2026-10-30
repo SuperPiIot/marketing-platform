@@ -195,6 +195,7 @@ export async function deletePolarCustomer(userId: string, polarCustomerId?: stri
       const status = error?.statusCode ?? error?.status;
       if (status !== 404) {
         console.error('Error deleting customer in Polar by externalId:', error);
+        throw error;
       }
     }
   }

@@ -171,3 +171,17 @@ export async function getCustomerPortalData(
 
   return { customer: null, subscriptions, orders, meters, customerPortalUrl: session.customerPortalUrl ?? null };
 }
+
+export async function deleteCustomer(polarCustomerId: string) {
+  try {
+    await polar.customers.delete({ id: polarCustomerId });
+  } catch (error: any) {
+    const { statusCode } = error as { statusCode?: number };
+    if (statusCode === 404) {
+      console.log('Customer already deleted in Polar');
+    } else {
+      console.error('Error deleting customer in Polar:', error);
+      throw new Error('Failed to delete customer in Polar');
+    }
+  }
+}

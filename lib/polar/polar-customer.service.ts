@@ -172,16 +172,34 @@ export async function getCustomerPortalData(
   return { customer: null, subscriptions, orders, meters, customerPortalUrl: session.customerPortalUrl ?? null };
 }
 
-export async function deleteCustomer(polarCustomerId: string) {
-  try {
-    await polar.customers.delete({ id: polarCustomerId });
-  } catch (error: any) {
-    const { statusCode } = error as { statusCode?: number };
-    if (statusCode === 404) {
-      console.log('Customer already deleted in Polar');
-    } else {
-      console.error('Error deleting customer in Polar:', error);
-      throw new Error('Failed to delete customer in Polar');
+export async function deletePolarCustomer(userId: string, polarCustomerId?: string | null) {
+  let deleted = false;
+  if (polarCustomerId) {
+    try {
+      await polar.customers.delete({ id: polarCustomerId });
+      deleted = true;
+    } catch (error: any) {
+      const status = error?.statusCode ?? error?.status;
+      if (status === 404) {
+        deleted = true;
+      } else {
+        console.warn('Failed to delete customer in Polar by polarCustomerId, trying externalId:', error);
+      }
     }
   }
+
+  if (!deleted && userId) {
+    try {
+      await polar.customers.deleteExternal({ externalId: userId });
+    } catch (error: any) {
+      const status = error?.statusCode ?? error?.status;
+      if (status !== 404) {
+        console.error('Error deleting customer in Polar by externalId:', error);
+      }
+    }
+  }
+}
+
+export async function deleteCustomer(polarCustomerId: string, userId?: string) {
+  return deletePolarCustomer(userId || '', polarCustomerId);
 }

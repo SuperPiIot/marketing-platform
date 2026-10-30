@@ -90,11 +90,47 @@ export const auth = betterAuth({
           );
         }
       },
+      beforeDelete: async (user) => {
+        try {
+          // Remove indirect subscriber events where foreign key is ON DELETE SET NULL
+          await prisma.event.deleteMany({
+            where: {
+              subscriber: {
+                list: {
+                  userId: user.id,
+                },
+              },
+            },
+          });
+        } catch (error) {
+          console.error('Failed to cleanup subscriber events before user deletion', {
+            userId: user.id,
+            error,
+          });
+        }
+      },
       afterDelete: async (user) => {
         try {
-          await polarClient.customers.deleteExternal({
-            externalId: user.id,
-          });
+          // Wipe Polar customer profile and subscriptions (both cached polarCustomerId and external ID)
+          const polarCustId = (user as any).polarCustomerId;
+          let deleted = false;
+          if (polarCustId) {
+            try {
+              await polarClient.customers.delete({ id: polarCustId });
+              deleted = true;
+            } catch (err: any) {
+              const status = err?.statusCode ?? err?.status;
+              if (status === 404) {
+                deleted = true;
+              }
+            }
+          }
+
+          if (!deleted) {
+            await polarClient.customers.deleteExternal({
+              externalId: user.id,
+            });
+          }
         } catch (error) {
           console.error('Failed to delete Polar customer after account deletion', {
             userId: user.id,

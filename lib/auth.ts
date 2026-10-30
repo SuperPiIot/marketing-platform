@@ -92,7 +92,10 @@ export const auth = betterAuth({
         }
       },
       beforeDelete: async (user) => {
-        // Remove indirect subscriber events where foreign key is ON DELETE SET NULL
+        // 1. Wipe Polar customer profile and subscriptions before local deletion (aborts if Polar fails)
+        await deletePolarCustomer(user.id, (user as any).polarCustomerId);
+
+        // 2. Remove indirect subscriber events where foreign key is ON DELETE SET NULL
         await prisma.event.deleteMany({
           where: {
             subscriber: {
@@ -102,10 +105,6 @@ export const auth = betterAuth({
             },
           },
         });
-      },
-      afterDelete: async (user) => {
-        // Wipe Polar customer profile and subscriptions (both cached polarCustomerId and external ID)
-        await deletePolarCustomer(user.id, (user as any).polarCustomerId);
       },
     },
   },
